@@ -43,6 +43,48 @@ class RandomGhost( GhostAgent ):
         dist.normalize()
         return dist
 
+class ExpectimaxGhost(GhostAgent):
+    def __init__(self, index):
+        self.index = index
+        self.depth = 2
+
+    def getDistribution(self, state):
+        return None
+    
+    def expectimax(self, depth, agentIndex, state):
+        if (state.isWin() or state.isLose() or depth > self.depth):
+            return -1 * state.getScore()
+        
+        actions = state.getLegalActions(agentIndex)
+        if agentIndex > 0:
+            max_value = -999999
+            for action in actions:
+                action_value = self.expectimax(depth + 1, 0, state.generateSuccessor(agentIndex, action))
+                max_value = max(max_value, action_value)
+            return max_value
+        else:
+            avg_value = 0
+            num_actions = len(actions)
+            for action in actions:
+                action_value = self.expectimax(depth + 1, self.index, state.generateSuccessor(0, action))
+                avg_value += action_value / num_actions
+            return avg_value
+
+    
+    def getAction(self, state):
+        actions = state.getLegalActions(self.index)
+        currentScore = -999999
+        returnAction = ''
+
+        for action in actions:
+            nextState = state.generateSuccessor(self.index, action)
+            score = self.expectimax(0, 0, nextState)
+            if score > currentScore:
+                returnAction = action
+                currentScore = score
+        return returnAction
+
+        
 class DirectionalGhost( GhostAgent ):
     "A ghost that prefers to rush Pacman, or flee when scared."
     def __init__( self, index, prob_attack=0.8, prob_scaredFlee=0.8 ):
