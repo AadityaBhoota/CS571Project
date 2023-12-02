@@ -80,3 +80,68 @@ class DirectionalGhost( GhostAgent ):
         for a in legalActions: dist[a] += ( 1-bestProb ) / len(legalActions)
         dist.normalize()
         return dist
+
+class AlphaBetaGhost(GhostAgent):
+    def __init__(self, index, depth='3'):
+        super().__init__(index)
+        self.index = index
+        self.depth = int(depth)
+
+    def getDistribution(self, state):
+        action = self.minimax(state, self.index, self.depth)[1]
+        dist = util.Counter()
+        dist[action] = 1.0
+        return dist
+
+    def minValue(self, state, agentIndex, depth, alpha, beta):
+        actions = []
+        for action in state.getLegalActions(agentIndex):
+            v = self.minimax(state.generateSuccessor(agentIndex, action), agentIndex + 1, depth, alpha, beta)[0]
+            actions.append((v, action))
+            if v < alpha:
+                return v, action
+            beta = min(beta, v)
+        return min(actions)
+
+    def maxValue(self, state, agentIndex, depth, alpha, beta):
+        actions = []
+        for action in state.getLegalActions(agentIndex):
+            v = self.minimax(state.generateSuccessor(agentIndex, action), agentIndex + 1, depth, alpha, beta)[0]
+            actions.append((v, action))
+            if v > beta:
+                return v, action
+            alpha = max(alpha, v)
+        return max(actions)
+
+    def minimax(self, state, agentIndex, depth, alpha=float('-inf'), beta=float('inf')):
+        if state.isWin() or state.isLose() or depth == 0:
+            return self.evaluationFunction(state), Directions.STOP
+        numAgents = state.getNumAgents()
+        agentIndex %= numAgents
+        if agentIndex == numAgents - 1:
+            depth -= 1
+        if agentIndex == self.index:
+            return self.maxValue(state, agentIndex, depth, alpha, beta)
+        else:
+            return self.minValue(state, agentIndex, depth, alpha, beta)
+
+    def evaluationFunction(self, state):
+        ghostPos = state.getGhostPosition(self.index)
+        pacmanPos = state.getPacmanPosition()
+        pacmanDis = manhattanDistance(ghostPos, pacmanPos)
+        otherGhostsPos = [state.getGhostPosition(i) for i in range(1, state.getNumAgents()) if i != self.index]
+        foodList = state.getFood().asList()
+        foodLeft = len(foodList)
+        capsules = state.getCapsules()
+        capsulesLeft = len(capsules)
+        if pacmanDis == 0:
+            ghostScore = 500
+        else:
+            ghostScore = -2 * pacmanDis
+        for otherGhostPos in otherGhostsPos:
+            if manhattanDistance(ghostPos, otherGhostPos) < 2:
+                ghostScore -= 15
+        foodScore = -2 * foodLeft
+        capsuleScore = -20 * capsulesLeft
+        score = state.getScore() + ghostScore + foodScore + capsuleScore
+        return score
