@@ -20,66 +20,73 @@ import random
 from util import manhattanDistance
 import util
 
-class GhostAgent( Agent ):
-    def __init__( self, index ):
+
+class GhostAgent(Agent):
+    def __init__(self, index):
+        super().__init__(index)
         self.index = index
 
-    def getAction( self, state ):
+    def getAction(self, state):
         dist = self.getDistribution(state)
         if len(dist) == 0:
             return Directions.STOP
         else:
-            return util.chooseFromDistribution( dist )
+            return util.chooseFromDistribution(dist)
 
     def getDistribution(self, state):
         "Returns a Counter encoding a distribution over actions from the provided state."
         util.raiseNotDefined()
 
-class RandomGhost( GhostAgent ):
+
+class RandomGhost(GhostAgent):
     "A ghost that chooses a legal action uniformly at random."
-    def getDistribution( self, state ):
+
+    def getDistribution(self, state):
         dist = util.Counter()
-        for a in state.getLegalActions( self.index ): dist[a] = 1.0
+        for a in state.getLegalActions(self.index): dist[a] = 1.0
         dist.normalize()
         return dist
 
-class DirectionalGhost( GhostAgent ):
+
+class DirectionalGhost(GhostAgent):
     "A ghost that prefers to rush Pacman, or flee when scared."
-    def __init__( self, index, prob_attack=0.8, prob_scaredFlee=0.8 ):
+
+    def __init__(self, index, prob_attack=0.8, prob_scaredFlee=0.8):
         self.index = index
         self.prob_attack = prob_attack
         self.prob_scaredFlee = prob_scaredFlee
 
-    def getDistribution( self, state ):
+    def getDistribution(self, state):
         # Read variables from state
-        ghostState = state.getGhostState( self.index )
-        legalActions = state.getLegalActions( self.index )
-        pos = state.getGhostPosition( self.index )
+        ghostState = state.getGhostState(self.index)
+        legalActions = state.getLegalActions(self.index)
+        pos = state.getGhostPosition(self.index)
         isScared = ghostState.scaredTimer > 0
 
         speed = 1
         if isScared: speed = 0.5
 
-        actionVectors = [Actions.directionToVector( a, speed ) for a in legalActions]
-        newPositions = [( pos[0]+a[0], pos[1]+a[1] ) for a in actionVectors]
+        actionVectors = [Actions.directionToVector(a, speed) for a in legalActions]
+        newPositions = [(pos[0] + a[0], pos[1] + a[1]) for a in actionVectors]
         pacmanPosition = state.getPacmanPosition()
 
         # Select best actions given the state
-        distancesToPacman = [manhattanDistance( pos, pacmanPosition ) for pos in newPositions]
+        distancesToPacman = [manhattanDistance(pos, pacmanPosition) for pos in newPositions]
         if isScared:
-            bestScore = max( distancesToPacman )
+            bestScore = max(distancesToPacman)
             bestProb = self.prob_scaredFlee
         else:
-            bestScore = min( distancesToPacman )
+            bestScore = min(distancesToPacman)
             bestProb = self.prob_attack
-        bestActions = [action for action, distance in zip( legalActions, distancesToPacman ) if distance == bestScore]
+        bestActions = [action for action, distance in zip(legalActions, distancesToPacman) if distance == bestScore]
 
         # Construct distribution
         dist = util.Counter()
         for a in bestActions: dist[a] = bestProb / len(bestActions)
-        for a in legalActions: dist[a] += ( 1-bestProb ) / len(legalActions)
+        for a in legalActions: dist[a] += (1 - bestProb) / len(legalActions)
         dist.normalize()
         return dist
+
 
 class AlphaBetaGhost(GhostAgent):
     def __init__(self, index, depth='3'):
@@ -145,3 +152,36 @@ class AlphaBetaGhost(GhostAgent):
         capsuleScore = -20 * capsulesLeft
         score = state.getScore() + ghostScore + foodScore + capsuleScore
         return score
+
+
+class AStarGhost(GhostAgent):
+    def __init__(self, index):
+        super().__init__(index)
+
+    def getAction(self, state):
+        action = self.aStarSearch(state)
+        legalActions = state.getLegalActions(self.index)
+        if action not in legalActions:
+            action = random.choice(legalActions) if legalActions else Directions.STOP
+        return action
+
+    def aStarSearch(self, state):
+        ghostPosition = state.getGhostPosition(self.index)
+        pacmanPosition = state.getPacmanPosition()
+        frontier = util.PriorityQueue()
+        frontier.push((ghostPosition, []), 0)
+        explored = set()
+        while not frontier.isEmpty():
+            position, path = frontier.pop()
+            if position in explored:
+                continue
+            explored.add(position)
+            if position == pacmanPosition:
+                return path[0] if path else Directions.STOP
+            for action in state.getLegalActions(self.index):
+                successor = state.generateSuccessor(self.index, action).getGhostPosition(self.index)
+                if successor not in explored:
+                    new_path = path + [action]
+                    cost = len(new_path) + util.manhattanDistance(successor, pacmanPosition)
+                    frontier.push((successor, new_path), cost)
+        return Directions.STOP
