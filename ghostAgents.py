@@ -127,30 +127,37 @@ class AlphaBetaGhost(GhostAgent):
         agentIndex %= numAgents
         if agentIndex == numAgents - 1:
             depth -= 1
-        if agentIndex == self.index:
+        ghostState = state.getGhostState(self.index)
+        scared = ghostState.scaredTimer > 0
+        if agentIndex == self.index and not scared:
             return self.maxValue(state, agentIndex, depth, alpha, beta)
         else:
             return self.minValue(state, agentIndex, depth, alpha, beta)
 
     def evaluationFunction(self, state):
-        ghostPos = state.getGhostPosition(self.index)
+        ghostState = state.getGhostState(self.index)
+        ghostPos = ghostState.getPosition()
         pacmanPos = state.getPacmanPosition()
         pacmanDis = manhattanDistance(ghostPos, pacmanPos)
-        otherGhostsPos = [state.getGhostPosition(i) for i in range(1, state.getNumAgents()) if i != self.index]
+        isScared = ghostState.scaredTimer > 0
+        if isScared:
+            ghostScore = 2 * pacmanDis
+        else:
+            ghostScore = 500 if pacmanDis == 0 else -2 * pacmanDis
+        trappingScore = 0
+        if not isScared:
+            otherGhostsPos = [state.getGhostPosition(i) for i in range(1, state.getNumAgents()) if i != self.index]
+            for otherGhostPos in otherGhostsPos:
+                if manhattanDistance(ghostPos, otherGhostPos) < 2:
+                    trappingScore -= 15
+                trappingScore += max(0, 10 - manhattanDistance(otherGhostPos, pacmanPos))
         foodList = state.getFood().asList()
         foodLeft = len(foodList)
         capsules = state.getCapsules()
         capsulesLeft = len(capsules)
-        if pacmanDis == 0:
-            ghostScore = 500
-        else:
-            ghostScore = -2 * pacmanDis
-        for otherGhostPos in otherGhostsPos:
-            if manhattanDistance(ghostPos, otherGhostPos) < 2:
-                ghostScore -= 15
         foodScore = -2 * foodLeft
         capsuleScore = -20 * capsulesLeft
-        score = state.getScore() + ghostScore + foodScore + capsuleScore
+        score = state.getScore() + ghostScore + trappingScore + foodScore + capsuleScore
         return score
 
 
