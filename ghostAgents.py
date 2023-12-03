@@ -159,36 +159,3 @@ class AlphaBetaGhost(GhostAgent):
         capsuleScore = -20 * capsulesLeft
         score = state.getScore() + ghostScore + trappingScore + foodScore + capsuleScore
         return score
-
-
-class AStarGhost(GhostAgent):
-    def __init__(self, index):
-        super().__init__(index)
-
-    def getAction(self, state):
-        action = self.aStarSearch(state)
-        legalActions = state.getLegalActions(self.index)
-        if action not in legalActions:
-            action = random.choice(legalActions) if legalActions else Directions.STOP
-        return action
-
-    def aStarSearch(self, state):
-        ghostPosition = state.getGhostPosition(self.index)
-        pacmanPosition = state.getPacmanPosition()
-        frontier = util.PriorityQueue()
-        frontier.push((ghostPosition, []), 0)
-        explored = set()
-        while not frontier.isEmpty():
-            position, path = frontier.pop()
-            if position in explored:
-                continue
-            explored.add(position)
-            if position == pacmanPosition:
-                return path[0] if path else Directions.STOP
-            for action in state.getLegalActions(self.index):
-                successor = state.generateSuccessor(self.index, action).getGhostPosition(self.index)
-                if successor not in explored:
-                    new_path = path + [action]
-                    cost = len(new_path) + util.manhattanDistance(successor, pacmanPosition)
-                    frontier.push((successor, new_path), cost)
-        return Directions.STOP
